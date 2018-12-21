@@ -1,4 +1,10 @@
 
+import Loader from './loader';
+
+export {
+  Loader
+};
+
 export default class Container {
   constructor() {
     this.services = {}

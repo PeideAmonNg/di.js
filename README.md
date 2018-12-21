@@ -1,6 +1,6 @@
 # DI
 
-A simple Dependency Injection container for JavaScript.
+A Dependency Injection Container (DIC) for NodeJS applications.
 
 ## Install
 
@@ -15,12 +15,14 @@ or Yarn:
 ## Introduction
 
 To use DI in your application simply import (or require) the `Container` and create a `Container` instance:
-````
-import Container from '@northern/di'
 
-const container = new Container()
-````
-With the newly instantiated container, you can start registering services. There are two ways you can register a service, the "service" method and/or the "factory" method.
+    import Container from '@northern/di'
+    
+    const container = new Container()
+
+With the newly instantiated container, you can start registering services.
+
+There are two ways you can register a service, with the `service` method and/or the `factory` method.
 
 ## Registering a service
 
@@ -28,50 +30,48 @@ With the `service` method a new service provider can be registered. The `service
 
     Container.service(name, provider[, lazy = false])
 
-The `name` is a string with the "name" of the service, e.g. `'logger'`. The `provider` is a function that "returns" the service instance. The `lazy` parameter specifies whether the service is "lazy" or not, more on that later.
+The `name` parameter is a string with the "name" of the service, e.g. `'logger'`. The `provider` is a function that "returns" the service instance. The `lazy` parameter specifies whether the service is "lazy" or not, more on that later.
 
-A "service" instance is only ever created once (as opposed to a factory, which returns a new instance each time). Let's look at a simple service registration process:
-````
-class Logger {
-  info(message) {
-    console.log(message)
-  }
-}
+When using the `service` method, a "service" instance is only ever created once (as opposed to a factory, which returns a new instance each time). Let's look at a simple service registration process:
 
-container.service('logger', container => {
-  return new Logger()
-})
+    class Logger {
+      info(message) {
+        console.log(message)
+      }
+    }
 
-````
+    container.service('logger', container => {
+      return new Logger()
+    })
+
 It's that simple. We can now get the "logger" by using the `get` method on the container:
 
     const logger = container.get('logger')
    
     logger.info("Hello DI")
 
-Since the `Container` instance is passed into the service provider, it is possible to "wire" multiple services together. I.e. a service provider can use prior registered services and "inject" them into other services. E.g. if we register a service then we can pass the `logger` to that service:
-````
-class PaymentService {
-  constructor(logger) {
-    this.logger = logger
-  }
+Since the `Container` instance is passed into the service provider, it is possible to "wire" multiple services together. I.e. a service provider can use, or depend on, other registered services and then "inject" instances of those services into the service to be created. E.g. if we register a new service then we can pass the `logger` service into that new service:
 
-  process(paymentObject) {
-    this.logger.info("Starting payment process.")
-  }
-}
+    class PaymentService {
+      constructor(logger) {
+        this.logger = logger
+      }
 
-container.service('payment', container => {
-  const logger = container.get('logger')
+      process(paymentObject) {
+        this.logger.info("Starting payment process.")
+      }
+    }
 
-  const service = new PaymentService(logger)
+    container.service('payment-service', container => {
+      const logger = container.get('logger')
 
-  return service
-})
+      const service = new PaymentService(logger)
 
-const paymentService = container.get('payment')
-paymentService.process({...})
-````
+      return service
+    })
+
+    const paymentService = container.get('payment-service')
+    paymentService.process({...})
 
 ### Lazy services
 
@@ -79,10 +79,42 @@ When a service is not "lazy" then the instance of that service will be created t
 
 To create a lazy service, simply pass the 3rd parameter of the `service` method as `true`.
 
+    container.service('logger', container => {
+      return new Logger()
+    }, true)
+
 ## Registering a factory
 
-With the `factory` method a new factory provider can be created. A factory will always return a new instance each time it is requested from the container. The factory registration is the same as that of a service except that a factory cannot be lazy. I.e. the `factory` method only has two parameters:
+With the `factory` method a new factory provider can be created. A factory is the same as a service except that it will always return a new instance each time it is requested from the container. The factory registration is the same as that of a service except that a factory cannot be lazy. I.e. the `factory` method only has two parameters:
 
     Container.factory(name, provider)
+
+## Container Loader
+
+In larger applications it is sometimes easier to describe the "wiring" of your services through a form of external configuration rather than a series of service providers in code.
+
+Lets look at an example, we're registering the same services as in the previous sections:
+
+    import Container, { Loader } from '@northern/di'
+
+    const config = {
+      'logger': {
+        src: './src/Logger',
+        class: 'Logger'
+      },
+      'payment-service': {
+        src: './src/PaymentService',
+        class: 'PaymentService',
+        arguments: ['@logger']
+      }
+    }
+
+    const container = new Container()
+    const loader = new Loader(container);
+
+    loader.load(config);
+
+    const paymentService = container.get('payment-service');
+
 
 That's it.
